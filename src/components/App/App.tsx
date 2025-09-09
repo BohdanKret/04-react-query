@@ -1,7 +1,7 @@
 import css from "./App.module.css";
 import SearchBar from "../SearchBar/SearchBar";
 import { Toaster, toast } from "react-hot-toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type Movie } from "../../types/movie";
 import fetchMovies from "../../services/movieService";
 import MovieGrid from "../MovieGrid/MovieGrid";
@@ -9,7 +9,7 @@ import Loader from "../Loader/Loader";
 import ErrorMessage from "../ErrorMessage/ErrorMessage";
 import MovieModal from "../MovieModal/MovieModal";
 import ReactPaginate from "react-paginate";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 
 function App() {
   // for search
@@ -19,10 +19,11 @@ function App() {
   // for pagination
   const [page, setPage] = useState<number>(1);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isSuccess, isFetching } = useQuery({
     queryKey: ["movies", topic, page],
     queryFn: () => fetchMovies(topic, page),
-    enabled: !!topic,
+    enabled: topic !== "",
+    placeholderData: keepPreviousData,
   });
 
   const handleSearch = (newTopic: string) => {
@@ -35,9 +36,11 @@ function App() {
   };
 
   // Показати toast, якщо не знайдено фільмів
-  if (data && data.movies.length === 0) {
-    toast.error("No movies found for your request.");
-  }
+  useEffect(() => {
+    if (isSuccess && data && data.movies.length === 0) {
+      toast.error("No movies found for your request.");
+    }
+  }, [isSuccess, data]);
 
   const isMoviesArray = data && data.movies.length > 0;
   const isNotOnlyOnePage = data && data.totalPages > 1;
@@ -48,7 +51,7 @@ function App() {
       {isMoviesArray && (
         <MovieGrid movies={data.movies} onSelect={setSelectedMovie} />
       )}
-      {isLoading && <Loader />}
+      {(isLoading || isFetching) && <Loader />}
       {isError && <ErrorMessage />}
       {selectedMovie && (
         <MovieModal onClose={handleModalClose} movie={selectedMovie} />
